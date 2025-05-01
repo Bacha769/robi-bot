@@ -1,5 +1,5 @@
 python-telegram-bot==20.7
 openai==0.28.0
-gTTS
-pytesseract
-Pillow
+gTTS==2.5.4
+pytesseract==0.3.13
+Pillow==11.2.0
