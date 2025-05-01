@@ -7,13 +7,9 @@ import openai
 import os
 import random
 
-# ВСТАВ СЮДИ СВІЙ OpenAI API КЛЮЧ
-openai.api_key = "import os
+import os
 openai.api_key = os.environ["OPENAI_API_KEY"]
-
-
-# ВСТАВ СЮДИ СВІЙ Telegram Bot Token
-TOKEN = "7885146393:AAFEuwwwYrf2JLBUa5Hvo0MN9jOliviOVNE"
+TOKEN = os.environ["TOKEN"]
 
 FRIENDLY_REPLIES = [
     "Привіт, Рибко! Як ти сьогодні? 💖",
