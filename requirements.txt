@@ -3,3 +3,5 @@ openai==0.28.0
 gTTS==2.5.4
 pytesseract==0.3.13
 Pillow==11.2.0
+requests
+deep-translator==1.11.4
