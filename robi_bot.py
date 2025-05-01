@@ -1,4 +1,4 @@
-from telegram import Update
+from telegram import Update, InputFile
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 from gtts import gTTS
 import pytesseract
@@ -14,8 +14,9 @@ ALLOWED_USERS = [5605461840, 5241636384]  # Ти і Ірина
 # Ініціалізація ключів
 openai.api_key = os.environ["OPENAI_API_KEY"]
 TOKEN = os.environ["TOKEN"]
+ELEVEN_API_KEY = os.environ["ELEVEN_API_KEY"]
 
-# Список слів для вивчення англійської
+# Список англійських слів
 ENGLISH_WORDS = [
     ("disrupt", "порушувати"),
     ("embrace", "обіймати, приймати"),
@@ -29,62 +30,52 @@ ENGLISH_WORDS = [
     ("believe", "вірити")
 ]
 
-# Функція для озвучення тексту через ElevenLabs
-def synthesize_speech(text, voice="Rachel", output_file="output.mp3"):
-    eleven_api_key = os.environ["ELEVEN_API_KEY"]
-    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice}"
-
-    headers = {
-        "xi-api-key": eleven_api_key,
-        "Content-Type": "application/json"
-    }
-
-    data = {
-        "text": text,
-        "voice_settings": {
-            "stability": 0.5,
-            "similarity_boost": 0.75
-        }
-    }
-
-    response = requests.post(url, json=data, headers=headers)
-    if response.status_code == 200:
-        with open(output_file, "wb") as f:
-            f.write(response.content)
-        return output_file
-    else:
-        return None
-
 # Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ALLOWED_USERS:
         return
     await update.message.reply_text("Привіт, Ірусько! Я твоя Робі 🌼")
 
-# Команда "слово"
+# Команда /word
 async def word_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ALLOWED_USERS:
         return
     word, translation = random.choice(ENGLISH_WORDS)
     await update.message.reply_text(f"Слово дня: {word.capitalize()} — {translation}.")
 
-# Команда /say для озвучення тексту
+# Команда /say
 async def say_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ALLOWED_USERS:
         return
+
     text = " ".join(context.args)
     if not text:
-        await update.message.reply_text("Напиши, що саме потрібно озвучити.")
+        await update.message.reply_text("Будь ласка, додай текст після команди /say.")
         return
 
-    await update.message.reply_text("Готую голосове повідомлення...")
+    try:
+        response = requests.post(
+            "https://api.elevenlabs.io/v1/text-to-speech/Yko7VS2Vq27utM5u2u0M/stream",
+            headers={
+                "xi-api-key": ELEVEN_API_KEY,
+                "Content-Type": "application/json"
+            },
+            json={
+                "text": text,
+                "model_id": "eleven_monolingual_v1",
+                "voice_settings": {
+                    "stability": 0.4,
+                    "similarity_boost": 0.7
+                }
+            }
+        )
+        with open("voice.mp3", "wb") as f:
+            f.write(response.content)
 
-    audio_path = synthesize_speech(text)
-    if audio_path:
-        with open(audio_path, "rb") as audio:
-            await update.message.reply_voice(audio)
-    else:
-        await update.message.reply_text("На жаль, не вдалося створити озвучення.")
+        with open("voice.mp3", "rb") as audio:
+            await update.message.reply_voice(voice=InputFile(audio))
+    except Exception as e:
+        await update.message.reply_text(f"Помилка озвучення: {e}")
 
 # Обробка звичайних повідомлень
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -102,13 +93,31 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Я з тобою, просто скажи, що хочеш зробити 💬")
 
+# Обробка фото
+async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ALLOWED_USERS:
+        return
+
+    try:
+        photo = update.message.photo[-1]
+        file = await photo.get_file()
+        file_path = "received_photo.jpg"
+        await file.download_to_drive(file_path)
+
+        text = pytesseract.image_to_string(Image.open(file_path), lang="eng+deu")
+        await update.message.reply_text(f"Я знайшла на фото такий текст:\n{text.strip()}")
+    except Exception as e:
+        await update.message.reply_text(f"Не вдалося обробити фото: {e}")
+
 # Запуск бота
 if __name__ == '__main__':
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("word", word_command))
     app.add_handler(CommandHandler("say", say_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
 
     print("Робі запущена!")
     app.run_polling()
