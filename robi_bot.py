@@ -121,8 +121,3 @@ if __name__ == '__main__':
 
     print("Робі запущена!")
     app.run_polling()
-
-
-
-    print("Робі запущена!")
-    app.run_polling()
